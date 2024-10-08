@@ -9,14 +9,19 @@
     "dist"
   ],
   "license": "MIT",
-  "scripts": {},
   "keywords": [
     "chatbot",
     "koishi",
+    "picture",
+    "splice",
+    "拼图",
     "plugin"
   ],
-  "devDependencies": {},
   "peerDependencies": {
-    "koishi": "4.18.0"
+    "koishi": "^4.17.11",
+    "koishi-plugin-puppeteer": "^3.8.3"
+  },
+  "dependencies": {
+    "schemastery": "^3.14.6"
   }
 }
