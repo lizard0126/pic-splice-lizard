@@ -2,6 +2,10 @@
   "name": "koishi-plugin-pic-splice-lizard",
   "description": "拼接图片，可选择横向或纵向",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lizard0126/pic-splice-lizard"
+  },
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
