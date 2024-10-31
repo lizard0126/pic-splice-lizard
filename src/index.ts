@@ -1,6 +1,6 @@
 import { Context, Schema, h } from 'koishi';
 import { } from 'koishi-plugin-puppeteer';
-
+// npm publish --workspace koishi-plugin-pic-splice-lizard --access public --registry https://registry.npmjs.org
 export const name = 'pic-splice-lizard';
 export const inject = ['puppeteer'];
 export const usage = `
@@ -9,7 +9,7 @@ export const usage = `
 - 发送图片，可以一次发送多张，也可以多次发送
 - 请输入“完成”或等待10秒自动拼接 
 `;
-export interface Config {}
+export interface Config { }
 
 export const Config: Schema<Config> = Schema.object({});
 
@@ -73,7 +73,7 @@ export function apply(ctx: Context) {
     const retryDelayMs = 1000;
     const renderErrorMsg = '[拼图] 渲染图片时发生错误：';
     const connectionClosedMsg = 'Connection closed';
-  
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         const page = await ctx.puppeteer.page();
@@ -95,7 +95,7 @@ export function apply(ctx: Context) {
         return screenshot;
       } catch (error) {
         ctx.logger('pic-splice-lizard').error(`${renderErrorMsg}${error.message}`);
-  
+
         if (error.message.includes(connectionClosedMsg)) {
           ctx.logger('pic-splice-lizard').info('[拼图] 连接关闭，正在重试...');
           await new Promise(resolve => setTimeout(resolve, retryDelayMs));
@@ -104,7 +104,7 @@ export function apply(ctx: Context) {
         }
       }
     }
-  
+
     throw new Error('[拼图] 达到最大重试次数，仍无法渲染图片');
   }
 
@@ -122,7 +122,7 @@ export function apply(ctx: Context) {
         }
       </style>
     `;
-  
+
     const imagesHtml = imageUrls.map(url => `<img src="${url}">`).join('');
     return `<html><head>${style}</head><body>${imagesHtml}</body></html>`;
   }
