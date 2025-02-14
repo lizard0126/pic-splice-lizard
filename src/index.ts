@@ -1,163 +1,122 @@
-import { Context, Schema, h } from 'koishi';
+import { Context, Schema, h, Session } from 'koishi';
 import { } from 'koishi-plugin-puppeteer';
 // npm publish --workspace koishi-plugin-pic-splice-lizard --access public --registry https://registry.npmjs.org
 export const name = 'pic-splice-lizard';
 export const inject = ['puppeteer'];
 export const usage = `
 ## 拼图插件使用方法：
-- 输入指令“拼图 [方向]”，可选方向有横向或纵向，默认纵向
-- 发送图片，可以一次发送多张，也可以多次发送
-- 请输入“完成”或等待10秒自动拼接 
+- 输入“拼图 [方向]”（横向/纵向，默认纵向）
+- 发送多张图片
+- 请输入“完成”或等待10秒自动拼接
 `;
-export interface Config { }
 
+export interface Config { }
 export const Config: Schema<Config> = Schema.object({});
 
 export function apply(ctx: Context) {
-  const logger = ctx.logger('pic-splice-lizard');
+  const tasks = new Map<string, { dir: '横向' | '纵向'; imgs: string[]; processing: boolean }>();
+  const timers = new Map<string, NodeJS.Timeout>();
 
-  const userImages: Record<string, { direction: string; images: string[]; processing?: boolean }> = {};
-  const timeout: Record<string, NodeJS.Timeout> = {};
+  function cleanup(userId: string) {
+    tasks.delete(userId);
+    clearTimeout(timers.get(userId));
+    timers.delete(userId);
+  }
 
-  // 拼图指令
-  ctx.command('拼图 [方向]', '拼接多张图片，默认方向为纵向')
-    .action(async ({ session }, direction = '纵向') => {
-      if (direction !== '横向' && direction !== '纵向') {
-        return '拼接方向只能是 "横向" 或 "纵向"。';
-      }
-
-      logger.info(`[拼图] 用户 ${session.userId} 开始拼接图片，方向：${direction}`);
-
-      userImages[session.userId] = {
-        direction: direction,
-        images: [],
-      };
-
-      return '请发送图片。当图片发送完成后，请输入 "完成" 或等待超时自动拼接。';
+  ctx.command('拼图 [方向]', '拼接多张图片')
+    .action(({ session }, dir = '纵向') => {
+      if (!['横向', '纵向'].includes(dir)) return '方向只能是 "横向" 或 "纵向"。';
+      tasks.set(session.userId, { dir: dir as '横向' | '纵向', imgs: [], processing: false });
+      return '请发送图片，输入 "完成" 开始拼接。';
     });
 
-  // 中间件监听图片消息
   ctx.middleware(async (session, next) => {
-    if (!userImages[session.userId]) {
-      return next();
-    }
+    const task = tasks.get(session.userId);
+    if (!task) return next();
 
-    const messageContent = session.content;
+    const images = h.select(session.content, 'img').map(img => img.attrs.src);
+    task.imgs.push(...images);
+    if (images.length) await session.send(`已获取 ${task.imgs.length} 张图片。`);
+    if (session.content.trim() === '完成') return processTask(session);
 
-    // 提取消息中的图片
-    const images = h.select(messageContent, 'img').map(img => img.attrs.src);
-    userImages[session.userId].images.push(...images);
-
-    if (images.length > 0) {
-      const totalImages = userImages[session.userId].images.length;
-      await session.send(`已获取 ${totalImages} 张图片。`);
-    }
-
-    if (messageContent.trim() === '完成') {
-      await stitchAndSendImages(ctx, session);
-      clearTimeout(timeout[session.userId]);
-      return;
-    }
-
-    // 超时机制：10秒内未继续发送图片，则自动拼接
-    clearTimeout(timeout[session.userId]);
-    timeout[session.userId] = setTimeout(async () => {
-      await stitchAndSendImages(ctx, session);
-    }, 10000);
+    resetTimeout(session.userId, session);
   });
 
-  // 使用 Puppeteer 拼接图片
-  async function stitchImages(ctx: Context, imageUrls: string[], direction: string) {
-    const html = generateHtmlForImages(imageUrls, direction);
-    const maxRetries = 3;
-    const retryDelayMs = 1000;
-    const renderErrorMsg = '[拼图] 渲染图片时发生错误：';
-    const connectionClosedMsg = 'Connection closed';
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        const page = await ctx.puppeteer.page();
-        page.setDefaultTimeout(30000);
-        await page.setContent(html);
-
-        // 等待所有图片加载完成
-        await page.evaluate(async () => {
-          const images = Array.from(document.images);
-          await Promise.all(images.map(img => {
-            if (img.complete) return Promise.resolve();
-            return new Promise(resolve => img.onload = resolve);
-          }));
-        });
-
-        // 截图
-        const screenshot = await page.screenshot({ fullPage: true });
-        await page.close();
-        return screenshot;
-      } catch (error) {
-        ctx.logger('pic-splice-lizard').error(`${renderErrorMsg}${error.message}`);
-
-        if (error.message.includes(connectionClosedMsg)) {
-          ctx.logger('pic-splice-lizard').info('[拼图] 连接关闭，正在重试...');
-          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-        } else {
-          throw error;
-        }
-      }
-    }
-
-    throw new Error('[拼图] 达到最大重试次数，仍无法渲染图片');
+  function resetTimeout(userId: string, session: Session) {
+    clearTimeout(timers.get(userId));
+    timers.set(userId, setTimeout(() => processTask(session), 10000));
   }
 
-  // 生成包含图片的 HTML
-  function generateHtmlForImages(imageUrls: string[], direction: string) {
-    const style = `
-      <style>
-        body {
-          margin: 0;
-          display: flex;
-          flex-direction: ${direction === '横向' ? 'row' : 'column'};
-        }
-        img {
-          display: block;
-        }
-      </style>
+  async function processTask(session: Session) {
+    const task = tasks.get(session.userId);
+    if (!task || task.processing || task.imgs.length < 2) {
+      return session.send(task?.imgs.length < 2 ? '请提供至少两张图片。' : '任务正在处理中，请稍候。');
+    }
+
+    task.processing = true;
+    try {
+      const imgBuffer = await stitchImages(ctx, task.imgs, task.dir);
+      await session.send(h.image(imgBuffer, 'image/png'));
+    } catch {
+      await session.send('拼接失败，请稍后重试。');
+    } finally {
+      cleanup(session.userId);
+    }
+  }
+
+  async function stitchImages(ctx: Context, imgs: string[], dir: '横向' | '纵向') {
+    const html = `
+      <html>
+      <head>
+        <style>
+          body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: ${dir === '横向' ? 'row' : 'column'};
+            align-items: flex-start;
+            justify-content: flex-start;
+          }
+          img {
+            display: block;
+            width: ${dir === '纵向' ? '100%' : 'auto'};
+            height: ${dir === '横向' ? '100%' : 'auto'};
+          }
+        </style>
+      </head>
+      <body>
+        ${imgs.map(url => `<img src="${url}">`).join('')}
+      </body>
+      </html>
     `;
 
-    const imagesHtml = imageUrls.map(url => `<img src="${url}">`).join('');
-    return `<html><head>${style}</head><body>${imagesHtml}</body></html>`;
-  }
+    for (let i = 0; i < 3; i++) {
+      try {
+        const page = await ctx.puppeteer.page();
+        await page.setViewport({ width: 1920, height: 1080 });
+        await page.setContent(html, { waitUntil: 'networkidle0' });
 
-  // 拼接图片并发送
-  async function stitchAndSendImages(ctx: Context, session: any) {
-    const userImageData = userImages[session.userId];
+        const { width, height } = await page.evaluate(() => {
+          const body = document.body;
+          return {
+            width: body.scrollWidth,
+            height: body.scrollHeight,
+          };
+        });
 
-    // 防止重复拼接
-    if (!userImageData || userImageData.processing) {
-      return;
+        await page.setViewport({ width, height });
+
+        const screenshot = await page.screenshot({
+          clip: { x: 0, y: 0, width, height },
+        });
+
+        await page.close();
+        return screenshot;
+      } catch (e) {
+        if (e.message.includes('Connection closed')) await new Promise(r => setTimeout(r, 1000));
+        else throw e;
+      }
     }
-
-    userImageData.processing = true;
-
-    const { direction, images } = userImageData;
-
-    if (images.length < 2) {
-      await session.send('请提供至少两张图片进行拼接。');
-      userImageData.processing = false;
-      return;
-    }
-
-    try {
-      logger.info(`[拼图] 开始拼接图片，方向：${direction}，图片数量：${images.length}`);
-      const stitchedImageBuffer = await stitchImages(ctx, images, direction);
-
-      await session.send(h.image(stitchedImageBuffer, 'image/png'));
-    } catch (error) {
-      logger.error(`[拼图] 拼接图片时发生错误：${error.message}`);
-      await session.send('拼接图片时发生错误，请稍后再试。');
-    } finally {
-      // 清理用户的图片数据
-      delete userImages[session.userId];
-      delete timeout[session.userId];
-    }
+    throw new Error('拼接失败');
   }
 }
