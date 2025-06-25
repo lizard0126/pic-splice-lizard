@@ -1,6 +1,6 @@
 import { Context, Schema, h, Session } from 'koishi';
 import { } from 'koishi-plugin-puppeteer';
-// npm publish --workspace koishi-plugin-pic-splice-lizard --access public --registry https://registry.npmjs.org
+
 export const name = 'pic-splice-lizard';
 export const inject = ['puppeteer'];
 export const usage = `
