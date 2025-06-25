@@ -1,8 +1,0 @@
-import { Context, Schema } from 'koishi';
-export declare const name = "pic-splice-lizard";
-export declare const inject: string[];
-export declare const usage = "\n## \u62FC\u56FE\u63D2\u4EF6\u4F7F\u7528\u65B9\u6CD5\uFF1A\n- \u8F93\u5165\u201C\u62FC\u56FE [\u65B9\u5411]\u201D\uFF08\u6A2A\u5411/\u7EB5\u5411\uFF0C\u9ED8\u8BA4\u7EB5\u5411\uFF09\n- \u53D1\u9001\u591A\u5F20\u56FE\u7247\n- \u8BF7\u8F93\u5165\u201C\u5B8C\u6210\u201D\u6216\u7B49\u5F8510\u79D2\u81EA\u52A8\u62FC\u63A5\n\n### \u6CE8\u610F\u4E8B\u9879\n- \u53D1\u9001\u56FE\u7247\u540E\uFF0C\u8BF7\u8F93\u5165\u201C\u5B8C\u6210\u201D\u4EE5\u5F00\u59CB\u62FC\u63A5\u3002\n- \u5982\u679C\u672A\u8F93\u5165\u201C\u5B8C\u6210\u201D\uFF0C\u63D2\u4EF6\u5C06\u572810\u79D2\u540E\u81EA\u52A8\u62FC\u63A5\u3002\n- \u652F\u6301\u4E00\u6B21\u6027\u53D1\u9001\u591A\u5F20\u56FE\u7247\uFF0C\u4F46\u5EFA\u8BAE\u4E0D\u8981\u8D85\u8FC710\u5F20\uFF0C\u4EE5\u514D\u62FC\u63A5\u65F6\u95F4\u8FC7\u957F\u3002\n\n<details>\n<summary><strong><span style=\"font-size: 1.3em; color: #2a2a2a;\">\u5982\u679C\u8981\u53CD\u9988\u5EFA\u8BAE\u6216\u62A5\u544A\u95EE\u9898</span></strong></summary>\n\n<strong>\u53EF\u4EE5[\u70B9\u8FD9\u91CC](https://github.com/lizard0126/javbus-lizard/issues)\u521B\u5EFA\u8BAE\u9898~</strong>\n</details>\n\n<details>\n<summary><strong><span style=\"font-size: 1.3em; color: #2a2a2a;\">\u5982\u679C\u559C\u6B22\u6211\u7684\u63D2\u4EF6</span></strong></summary>\n\n<strong>\u53EF\u4EE5[\u8BF7\u6211\u559D\u53EF\u4E50](https://ifdian.net/a/lizard0126)\uFF0C\u6CA1\u51C6\u5C31\u6709\u52A8\u529B\u66F4\u65B0\u65B0\u529F\u80FD\u4E86~</strong>\n</details>\n";
-export interface Config {
-}
-export declare const Config: Schema<Config>;
-export declare function apply(ctx: Context): void;
