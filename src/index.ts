@@ -17,7 +17,7 @@ export const usage = `
 <details>
 <summary><strong><span style="font-size: 1.3em; color: #2a2a2a;">如果要反馈建议或报告问题</span></strong></summary>
 
-<strong>可以[点这里](https://github.com/lizard0126/javbus-lizard/issues)创建议题~</strong>
+<strong>可以[点这里](https://github.com/lizard0126/pic-splice-lizard/issues)创建议题~</strong>
 </details>
 
 <details>
